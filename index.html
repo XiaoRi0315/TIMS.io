@@ -322,11 +322,15 @@
             gap: 30px;
         }
         
-        #topic-filters.filter-options {
+        #topic-filters.filter-options, #count-filters.filter-options {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 30px;
             padding: 0 40px;
+        }
+        
+        #topic-filters.filter-options {
+            grid-template-columns: 1fr 1fr;
         }
 
         .checkbox-label {
@@ -349,7 +353,8 @@
             font-weight: 600;
         }
 
-        input[type="checkbox"]:checked + .checkbox-label {
+        input[type="checkbox"]:checked + .checkbox-label,
+        input[type="radio"]:checked + .checkbox-label {
             background-color: var(--color-primary); 
             border-color: #e89fb0;
             color: var(--color-text); 
@@ -362,11 +367,12 @@
              color: var(--color-text-light);
         }
         
-        .dark-mode input[type="checkbox"]:checked + .checkbox-label {
+        .dark-mode input[type="checkbox"]:checked + .checkbox-label,
+        .dark-mode input[type="radio"]:checked + .checkbox-label {
             color: #1e272e;
         }
 
-        input[type="checkbox"] {
+        input[type="checkbox"], input[type="radio"].count-radio {
             display: none; 
         }
 
@@ -554,17 +560,13 @@
             cursor: default;
             opacity: 0.8;
         }
-        
-        input[type="radio"] {
-            display: none; 
-        }
 
         .quiz-navigation {
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 15px;
-            margin-top: 20px; /* 稍微調整與上方卡片的間距 */
+            margin-top: 20px; 
             margin-bottom: 10px;
         }
         
@@ -751,7 +753,7 @@
                 font-size: 0.9rem;
             }
             
-            #topic-filters.filter-options {
+            #topic-filters.filter-options, #count-filters.filter-options {
                 gap: 10px;
                 padding: 0;
             }
@@ -842,8 +844,19 @@
                     </div>
                 </div>
 
-                <div class="training-info adjustable-text" id="training-count-info">
-                    選擇的範圍中，將會出題庫裡的所有題目進行隨機訓練
+                <!-- 關鍵修改：抽題數量選擇區塊 -->
+                <div class="filter-group">
+                    <h3 style="margin-top:0; font-size: 1.1rem; color: var(--color-text-light);">隨機抽題設定</h3>
+                    <div id="count-filters" class="filter-options">
+                        <input type="radio" id="count-10" name="quiz-count" value="10" class="count-radio">
+                        <label for="count-10" class="checkbox-label adjustable-text">抽10題</label>
+                        
+                        <input type="radio" id="count-50" name="quiz-count" value="50" class="count-radio">
+                        <label for="count-50" class="checkbox-label adjustable-text">抽50題</label>
+                        
+                        <input type="radio" id="count-all" name="quiz-count" value="all" class="count-radio" checked>
+                        <label for="count-all" class="checkbox-label adjustable-text">全部題目</label>
+                    </div>
                 </div>
 
                 <button id="start-btn" 
@@ -864,7 +877,6 @@
                 
                 <div id="feedback-area"></div>
 
-                <!-- 關鍵修改：將按鈕控制區塊調整至題號導覽區塊上方 -->
                 <div class="quiz-navigation">
                     <button id="prev-btn" class="btn btn-nav adjustable-text" onclick="navigateQuiz(-1)" disabled>
                         上一題
@@ -897,8 +909,7 @@
     </div>
 
     <script>
-        // 題庫部分已依照您的需求簡化保留前幾題，方便頁面代碼Scannable與管理
-         const quizData = [
+          const quizData = [
           {"chapter":"CH1","topic":"理論題","question":"根據台灣行銷科學學會的定義，「行銷」的核心本質是什麼？","A":"品牌建立","B":"價值交換","C":"產品設計","D":"顧客關係管理","answer":"B","explanation":"台灣行銷科學學會定義中，行銷的核心為「交換」與「交易」，即價值交換的過程。"},
 {"chapter":"CH1","topic":"理論題","question":"以下何者最能區分現代行銷與傳統銷售的觀點？","A":"企業利益優先順序","B":"僅專注商品銷售","C":"價值與關係的互動","D":"廣告推廣方式不同","answer":"C","explanation":"現代行銷強調「價值互換」與「關係建立」，而非僅以企業獲利或單向推銷為導向。"},
 {"chapter":"CH1","topic":"理論題","question":"下列何者不屬於行銷中可能交換的價值形式？","A":"商品","B":"理念","C":"資訊","D":"產線自動化","answer":"D","explanation":"行銷中的交換可涵蓋商品、服務、資訊、理念等，但「產線自動化」屬於內部營運，不是對外價值交換內容。"},
@@ -1877,9 +1888,11 @@
             });
         }
         
+        // 核心修改邏輯：開始訓練時加入抽題數量控制
         function startTraining() {
             const selectedChapters = Array.from(document.querySelectorAll('#chapter-filters input:checked')).map(cb => cb.value);
             const selectedTopics = Array.from(document.querySelectorAll('#topic-filters input:checked')).map(cb => cb.value);
+            const countSetting = document.querySelector('input[name="quiz-count"]:checked').value;
 
             if (selectedChapters.length === 0 && selectedTopics.length === 0) {
                 showMessageBox('請選擇至少一個章節或題目領域！');
@@ -1899,7 +1912,18 @@
             localStorage.setItem('selectedChapters', JSON.stringify(selectedChapters));
             localStorage.setItem('selectedTopics', JSON.stringify(selectedTopics));
             
-            currentQuiz = filteredData.sort(() => 0.5 - Math.random());
+            // 先打亂篩選後的全部題目
+            filteredData.sort(() => 0.5 - Math.random());
+
+            // 依據選擇的方塊限制題目數量
+            if (countSetting === '10') {
+                currentQuiz = filteredData.slice(0, 10);
+            } else if (countSetting === '50') {
+                currentQuiz = filteredData.slice(0, 50);
+            } else {
+                currentQuiz = filteredData; // 'all' 全部題目
+            }
+            
             userAnswers = {}; 
             currentQuestionIndex = 0;
             questionOptionOrders = {}; 
@@ -1935,12 +1959,13 @@
 
                 const displayLetter = String.fromCharCode(65 + orderIdx); 
 
+                // 將 input 標籤包裹在 label 內部，並移除了原本導致外露的結構
                 return `
                     <li class="option-item">
-                        <input type="radio" id="q${index}-option-${key}" name="question-${index}" value="${key}" 
-                               ${userAnswer === key ? 'checked' : ''} ${disabledAttr}
-                               onclick="handleOptionChange('${key}')">
                         <label for="q${index}-option-${key}" class="${labelClass}">
+                            <input type="radio" id="q${index}-option-${key}" name="question-${index}" value="${key}" 
+                                ${userAnswer === key ? 'checked' : ''} ${disabledAttr}
+                                onclick="handleOptionChange('${key}')" style="display: none;">
                             <span style="font-weight: 700; margin-right: 10px;">${displayLetter}.</span> ${question[key]}
                         </label>
                     </li>
